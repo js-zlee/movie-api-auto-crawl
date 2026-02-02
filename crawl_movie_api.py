@@ -6,25 +6,35 @@ import time
 from urllib.parse import quote
 
 # ---------------------- 核心配置（新手可改，注释已标清） ----------------------
-# 1. 影视接口核心搜索关键词（越多，找到的3个月内资源越多）
+# 1. 影视接口核心搜索关键词（越多，找到的1年内资源越多）
 SEARCH_KEYWORDS = [
-    "影视接口站 api.php/provide/vod/ 可用",
-    "zyapi 影视资源接口 公开",
-    "lziapi caiji 影视接口",
-    "影视API 资源站 最新可用",
-    "自动采集 影视接口配置 JSON"
+    "影视接口站 api.php/provide/vod/ 可用 2026",
+    "zyapi 影视资源接口 免费 最新",
+    "lziapi caiji 影视接口 有效",
+    "影视API 资源站 公开 2026",
+    "自动采集 影视接口配置 JSON 可用",
+    "最新影视资源站 API 接口 2026"
 ]
-# 2. 搜索引擎入口（必应，带3个月时间筛选）
-# &filters=ex1:"ez5" 是必应语法：近3个月；ez4=近1个月，ez6=近6个月
-SEARCH_ENGINE = "https://cn.bing.com/search?q={}&first={}&filters=ex1:\"ez5\""
-# 3. 爬取深度：每个关键词搜前2页（新手建议1-2，避免被封）
-CRAWL_PAGE = 2
+# 2. 国内可访问的搜索引擎入口列表（带1年时间筛选）
+# 格式：(引擎名称, 搜索URL模板, 时间筛选参数)
+SEARCH_ENGINES = [
+    # 必应：ez7 代表近1年
+    ("必应", "https://cn.bing.com/search?q={}&first={}", "&filters=ex1:\"ez7\""),
+    # 百度：cr=0_513 代表近1年
+    ("百度", "https://www.baidu.com/s?wd={}&pn={}", "&cr=0_513"),
+    # 360搜索：t=1y 代表近1年
+    ("360搜索", "https://www.so.com/s?q={}&pn={}", "&t=1y"),
+    # 搜狗搜索：stime=1y 代表近1年
+    ("搜狗搜索", "https://fanyi.sogou.com/websearch/searchList.jsp?query={}&page={}", "&stime=1y")
+]
+# 3. 爬取深度：每个关键词搜前3页（新手建议2-3，避免被封）
+CRAWL_PAGE = 3
 # 4. 接口网址匹配规则（覆盖核心标识）
 API_PATTERN = re.compile(r'https?://[^\s)+?]+?(zy|api|lzi|caiji|cj)[^\s)*?]+?(api\.php/provide/vod/|api/json)')
 # 5. 请求头（模拟浏览器，降低反爬）
 HEADERS = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-    "Referer": "https://cn.bing.com/",
+    "Referer": "https://www.baidu.com/",
     "Accept-Language": "zh-CN,zh;q=0.9"
 }
 # 6. 输出JSON文件名
@@ -32,12 +42,12 @@ OUTPUT_FILE = "movie_api_list.json"
 # 7. 防反爬间隔（秒）
 SLEEP_TIME = 1.5
 # 8. 接口验活配置（严格筛选可用接口）
-VERIFY_TIMEOUT = 8  # 接口响应超时时间（8秒内没反应=无效）
-VERIFY_MIN_LENGTH = 100  # 接口返回JSON最小长度（避免空响应）
+VERIFY_TIMEOUT = 10  # 接口响应超时时间（10秒内没反应=无效）
+VERIFY_MIN_LENGTH = 50  # 接口返回JSON最小长度（放宽限制）
 
-# ---------------------- 工具函数：时间校验（二次过滤3个月内资源） ----------------------
-def is_within_3_months(date_str):
-    """校验日期字符串是否在近3个月内，兜底过滤漏网的过期资源"""
+# ---------------------- 工具函数：时间校验（兜底过滤1年内资源） ----------------------
+def is_within_1_year(date_str):
+    """校验日期字符串是否在近1年内，兜底过滤漏网的过期资源"""
     try:
         # 适配常见日期格式：2025-12-24 / 2025/12/24 / 2025.12.24
         date_formats = ["%Y-%m-%d", "%Y/%m/%d", "%Y.%m.%d"]
@@ -47,48 +57,68 @@ def is_within_3_months(date_str):
                 break
             except:
                 continue
-        # 计算3个月前的日期
-        three_months_ago = datetime.now() - timedelta(days=90)
-        return post_date >= three_months_ago
+        # 计算1年前的日期
+        one_year_ago = datetime.now() - timedelta(days=365)
+        return post_date >= one_year_ago
     except:
         # 解析失败则默认保留（交给后续验活过滤）
         return True
 
-# ---------------------- 核心函数1：搜索3个月内的疑似渠道链接 ----------------------
+# ---------------------- 核心函数1：搜索1年内的疑似渠道链接 ----------------------
 def get_recent_channel_urls():
     channel_urls = set()
-    print(f"===== 开始搜索【近3个月】的影视接口渠道 =====")
-    for keyword in SEARCH_KEYWORDS:
-        # 对关键词URL编码（避免中文/特殊字符报错）
-        encoded_keyword = quote(keyword)
-        print(f"\n🔍 搜索关键词：{keyword}")
-        for page in range(1, CRAWL_PAGE + 1):
-            search_url = SEARCH_ENGINE.format(encoded_keyword, (page - 1) * 10 + 1)
-            try:
-                time.sleep(SLEEP_TIME)
-                response = requests.get(search_url, headers=HEADERS, timeout=10)
-                response.encoding = response.apparent_encoding
-                # 提取搜索结果链接+发布时间（二次过滤）
-                # 必应结果的发布时间在<cite class="sb_csi_date">标签里
-                date_pattern = re.compile(r'<cite class="sb_csi_date">([\d\-/.]+)</cite>')
-                link_pattern = re.compile(r'<a href="(https?://[^\s"]+)" target="_blank"')
-                # 匹配发布时间和链接
-                post_dates = date_pattern.findall(response.text)
-                all_links = link_pattern.findall(response.text)
-                # 遍历链接，只保留3个月内的
-                for idx, link in enumerate(all_links):
-                    # 过滤核心标识+二次时间过滤
-                    if any(word in link for word in ["zy", "api", "lzi", "caiji", "cj"]):
-                        # 有发布时间则校验，无则默认保留（交给验活）
-                        if idx < len(post_dates) and not is_within_3_months(post_dates[idx]):
-                            print(f"  第{page}页：跳过过期链接 [{link[:30]}...]")
-                            continue
-                        channel_urls.add(link)
-                print(f"  第{page}页：过滤后保留 {len(channel_urls)} 个3个月内的渠道")
-            except Exception as e:
-                print(f"  第{page}页爬取失败：{str(e)}")
-                continue
-    print(f"\n===== 搜索完成，共获取 {len(channel_urls)} 个3个月内的疑似渠道 =====")
+    print(f"===== 开始使用 {len(SEARCH_ENGINES)} 个国内搜索引擎，搜索近1年影视接口渠道 =====")
+    
+    for engine_name, search_url_template, time_param in SEARCH_ENGINES:
+        print(f"\n🔍 使用 {engine_name} 搜索：")
+        for keyword in SEARCH_KEYWORDS:
+            # 对关键词URL编码（避免中文/特殊字符报错）
+            encoded_keyword = quote(keyword)
+            print(f"  关键词：{keyword}")
+            for page in range(1, CRAWL_PAGE + 1):
+                # 适配不同引擎的分页参数
+                if engine_name == "必应":
+                    page_param = (page - 1) * 10 + 1  # 必应分页：1、11、21...
+                elif engine_name == "百度":
+                    page_param = (page - 1) * 10  # 百度分页：0、10、20...（pn=0是第1页）
+                elif engine_name == "360搜索":
+                    page_param = page  # 360分页：1、2、3...
+                elif engine_name == "搜狗搜索":
+                    page_param = page  # 搜狗分页：1、2、3...
+                
+                # 拼接完整搜索URL（关键词+分页+1年时间筛选）
+                search_url = f"{search_url_template.format(encoded_keyword, page_param)}{time_param}"
+                
+                try:
+                    time.sleep(SLEEP_TIME)  # 防反爬，暂停1.5秒
+                    response = requests.get(search_url, headers=HEADERS, timeout=10)
+                    response.encoding = response.apparent_encoding
+                    
+                    # 提取搜索结果链接+发布时间（二次过滤）
+                    date_pattern = re.compile(r'<cite class="sb_csi_date">([\d\-/.]+)</cite>')
+                    if engine_name == "百度":
+                        # 百度的发布时间在<span class="c-color-gray2">标签里
+                        date_pattern = re.compile(r'<span class="c-color-gray2">([\d\-/.]+)</span>')
+                    
+                    link_pattern = re.compile(r'<a href="(https?://[^\s"]+)" target="_blank"')
+                    # 匹配发布时间和链接
+                    post_dates = date_pattern.findall(response.text)
+                    all_links = link_pattern.findall(response.text)
+                    
+                    # 遍历链接，只保留1年内的
+                    for idx, link in enumerate(all_links):
+                        # 过滤核心标识+二次时间过滤
+                        if any(word in link for word in ["zy", "api", "lzi", "caiji", "cj"]):
+                            # 有发布时间则校验，无则默认保留（交给验活）
+                            if idx < len(post_dates) and not is_within_1_year(post_dates[idx]):
+                                print(f"  第{page}页：跳过过期链接 [{link[:30]}...]")
+                                continue
+                            channel_urls.add(link)
+                    print(f"    第{page}页：过滤后保留 {len(channel_urls)} 个1年内的渠道")
+                except Exception as e:
+                    print(f"    第{page}页爬取失败：{str(e)}")
+                    continue
+    print(f"\n===== 搜索完成，共获取 {len(channel_urls)} 个1年内的疑似渠道 =====")
     return list(channel_urls)
 
 # ---------------------- 核心函数2：从渠道爬取接口网址 ----------------------
@@ -97,13 +127,13 @@ def crawl_api_from_channels(channel_urls):
     print(f"\n===== 开始从 {len(channel_urls)} 个渠道爬取接口网址 =====")
     for idx, channel in enumerate(channel_urls, 1):
         try:
-            time.sleep(SLEEP_TIME)
+            time.sleep(SLEEP_TIME)  # 防反爬，暂停1.5秒
             response = requests.get(channel, headers=HEADERS, timeout=10)
             response.encoding = response.apparent_encoding
             # 匹配接口网址
             api_matches = API_PATTERN.findall(response.text)
             api_urls = [match[0] + match[1] for match in api_matches]
-            # 去重添加
+            # 去重添加+简单清洗
             for url in api_urls:
                 # 简单清洗：去掉多余字符（如括号、空格）
                 clean_url = url.strip().replace(")", "").replace("(", "")
@@ -121,7 +151,7 @@ def strict_verify_api_urls(api_urls):
     print(f"\n===== 开始严格验证 {len(api_urls)} 个接口的可用性 =====")
     for idx, url in enumerate(api_urls, 1):
         try:
-            # 严格验活条件：8秒内响应 + 200状态码 + 返回JSON + 响应内容非空
+            # 严格验活条件：10秒内响应 + 200状态码 + 返回JSON + 响应内容非空
             res = requests.get(
                 url, 
                 headers=HEADERS, 
@@ -161,15 +191,15 @@ def save_valid_api_to_json(valid_urls):
         "sites": [
             {
                 "id": f"auto-{idx}",
-                "key": f"3个月内有效-{idx}",
-                "name": f"3个月内有效-{idx}",
+                "key": f"1年内有效-{idx}",
+                "name": f"1年内有效-{idx}",
                 "api": url,
                 "type": 2,
                 "isActive": 1,
                 "time": datetime.now().strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3] + "+08:00",
                 "isDefault": 0,
-                "remark": f"GitHub Actions自动采集（近3个月资源+验活通过）",
-                "tags": ["3个月内有效", "自动验活", "可用"],
+                "remark": f"GitHub Actions自动采集（近1年资源+验活通过）",
+                "tags": ["1年内有效", "自动验活", "可用"],
                 "priority": 0,
                 "proxyMode": "none",
                 "customProxy": ""
@@ -183,16 +213,16 @@ def save_valid_api_to_json(valid_urls):
     # 写入JSON文件（覆盖旧文件，只保留最新可用接口）
     with open(OUTPUT_FILE, 'w', encoding='utf-8') as f:
         json.dump(result, f, ensure_ascii=False, indent=2)
-    print(f"\n✅ 最终结果：{len(valid_urls)} 个3个月内发布且当前可用的接口已保存到 {OUTPUT_FILE}")
+    print(f"\n✅ 最终结果：{len(valid_urls)} 个1年内发布且当前可用的接口已保存到 {OUTPUT_FILE}")
 
 # ---------------------- 主函数：串联全流程 ----------------------
 if __name__ == '__main__':
     start_time = datetime.now()
-    print("===== 开始【3个月内资源+自动验活】影视接口采集全流程 =====")
-    # 步骤1：获取3个月内的渠道链接
+    print("===== 开始【1年内资源+多引擎+自动验活】影视接口采集全流程 =====")
+    # 步骤1：获取1年内的渠道链接
     channel_urls = get_recent_channel_urls()
     if not channel_urls:
-        print("❌ 未发现任何3个月内的渠道，流程终止")
+        print("❌ 未发现任何1年内的渠道，流程终止")
         # 生成空JSON，避免GitHub Actions提交报错
         save_valid_api_to_json([])
         exit()
