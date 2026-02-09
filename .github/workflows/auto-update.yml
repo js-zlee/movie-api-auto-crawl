@@ -1,0 +1,31 @@
+name: Auto Discover & Validate Movie APIs
+
+on:
+  schedule:
+    - cron: '0 2 * * *'  # 每天 UTC 时间 2:00（北京时间 10:00）
+  workflow_dispatch:     # 允许手动触发
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v2
+        with:
+          python-version: '3.10'
+
+      - name: Install dependencies
+        run: pip install requests
+
+      - name: Run discovery script
+        run: python auto_discover.py
+
+      - name: Commit and push if changed
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add movie_api_list.json
+          git diff --quiet && echo "No changes" || git commit -m "Auto update movie API list $(date)"
+          git push origin main
