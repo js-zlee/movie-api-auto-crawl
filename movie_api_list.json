@@ -1,13 +1,13 @@
 {
   "sites": [
     {
-      "id": "42edc30f-a998-49cc-99ec-3ab5797ad65e",
+      "id": "9640e83d-28f2-4b80-90a2-fd6cab4d9fcf",
       "key": "Api",
       "name": "Api",
       "api": "https://api.1080zyku.com/inc/apijson_vod.php",
       "type": 2,
       "isActive": 0,
-      "time": "2026-03-23T04:29:02.028394+00:00",
+      "time": "2026-03-24T04:20:56.164868+00:00",
       "isDefault": 0,
       "remark": "HTTP 404",
       "tags": [
@@ -18,13 +18,13 @@
       "customProxy": ""
     },
     {
-      "id": "34cb8d9b-8343-476c-9775-188c989e1f03",
+      "id": "4f470a1a-66c3-4015-aae3-12f1824651cb",
       "key": "Api",
       "name": "Api",
       "api": "https://api.kudian70.com/api.php/provide/vod/",
       "type": 2,
       "isActive": 0,
-      "time": "2026-03-23T04:29:02.028394+00:00",
+      "time": "2026-03-24T04:20:56.164868+00:00",
       "isDefault": 0,
       "remark": "HTTPSConnectionPool(host='api.kudian70.com', port=443): Max retries exceeded with url: /api.php/provide/vod/ (Caused by NameResolutionError(\"HTTPSConnection(host='api.kudian70.com', port=443): Failed to resolve 'api.kudian70.com' ([Errno -2] Name or service not known)\"))",
       "tags": [
@@ -35,13 +35,13 @@
       "customProxy": ""
     },
     {
-      "id": "fcb7faba-9dfe-44c3-b6d6-3bd5b8400241",
+      "id": "a89bb1f3-e010-428e-900f-adcd6ab08771",
       "key": "Api",
       "name": "Api",
       "api": "https://api.wujinapi.me/api.php/provide/vod/",
       "type": 2,
       "isActive": 0,
-      "time": "2026-03-23T04:29:02.028394+00:00",
+      "time": "2026-03-24T04:20:56.164868+00:00",
       "isDefault": 0,
       "remark": "No video fields",
       "tags": [
@@ -52,13 +52,13 @@
       "customProxy": ""
     },
     {
-      "id": "169a0efd-b15b-4ee6-b66b-51cfc767660b",
+      "id": "a2834f73-6712-483c-aa18-403ab2f6f849",
       "key": "Hhzyapi",
       "name": "Hhzyapi",
       "api": "https://hhzyapi.com/api.php/provide/vod/",
       "type": 2,
       "isActive": 0,
-      "time": "2026-03-23T04:29:02.028394+00:00",
+      "time": "2026-03-24T04:20:56.164868+00:00",
       "isDefault": 0,
       "remark": "No video fields",
       "tags": [
